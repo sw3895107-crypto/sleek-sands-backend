@@ -8,39 +8,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// PostgreSQL connection (uses Render environment variable)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  ssl: { rejectUnauthorized: false },
 });
 
-app.get("/", (req, res) => {
-  res.send("Sleek Sands backend running");
-});
-
+// Health check
 app.get("/health", async (req, res) => {
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok" });
   } catch (err) {
-    res.status(500).json({ status: "error", error: err.message });
+    res.status(500).json({ status: "database error" });
   }
 });
 
-app.post("/users", async (req, res) => {
-  const { email } = req.body;
-  try {
-    const result = await pool.query(
-      "INSERT INTO users (email) VALUES ($1) RETURNING *",
-      [email]
-    );
-    res.json(result.rows[0]);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+// Root route
+app.get("/", (req, res) => {
+  res.send("Sleek Sands backend running");
 });
 
-app.listen(process.env.PORT || 10000, () => {
-  console.log("API running");
+// Example API route
+app.get("/api/status", (req, res) => {
+  res.json({ message: "API live" });
+});
+
+const PORT = process.env.PORT || 10000;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
