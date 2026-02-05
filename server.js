@@ -1,74 +1,56 @@
 import express from "express";
 import cors from "cors";
-import dotenv from "dotenv";
 import pkg from "pg";
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
-
-dotenv.config();
 
 const { Pool } = pkg;
 
 const app = express();
+const PORT = process.env.PORT || 10000;
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
+// PostgreSQL connection (Render automatically provides DATABASE_URL)
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: {
+    rejectUnauthorized: false,
+  },
 });
 
+// Root route
 app.get("/", (req, res) => {
-  res.send("Hello from Render");
+  res.json({ message: "Sleek Sands backend running" });
 });
 
+// Health check route (used by frontend)
 app.get("/health", (req, res) => {
   res.json({ status: "ok" });
 });
 
-/* USER REGISTER */
-app.post("/register", async (req, res) => {
-  const { email, password } = req.body;
+// API status test route
+app.get("/api/status", (req, res) => {
+  res.json({ message: "API connected successfully" });
+});
 
+// Example DB test route
+app.get("/api/db-test", async (req, res) => {
   try {
-    const hash = await bcrypt.hash(password, 10);
-
-    const result = await pool.query(
-      "INSERT INTO users(email, password) VALUES($1,$2) RETURNING id",
-      [email, hash]
-    );
-
-    res.json({ success: true, userId: result.rows[0].id });
+    const result = await pool.query("SELECT NOW()");
+    res.json({
+      message: "Database connected",
+      time: result.rows[0],
+    });
   } catch (err) {
-    res.status(400).json({ error: "User exists or DB error" });
+    res.status(500).json({
+      message: "Database connection failed",
+      error: err.message,
+    });
   }
 });
 
-/* LOGIN */
-app.post("/login", async (req, res) => {
-  const { email, password } = req.body;
-
-  const result = await pool.query(
-    "SELECT * FROM users WHERE email=$1",
-    [email]
-  );
-
-  if (!result.rows.length) return res.status(401).json({ error: "Invalid" });
-
-  const user = result.rows[0];
-  const match = await bcrypt.compare(password, user.password);
-
-  if (!match) return res.status(401).json({ error: "Invalid" });
-
-  const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET);
-
-  res.json({ token });
+// Start server
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
-
-/* STATUS */
-app.get("/api/status", (req, res) => {
-  res.json({ app: "sleek-sands", online: true });
-});
-
-const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => console.log(`API running on port ${PORT}`));
