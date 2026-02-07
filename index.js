@@ -1,71 +1,28 @@
 import express from "express";
 import cors from "cors";
-import pkg from "pg";
 import http from "http";
 import { Server } from "socket.io";
-
-import { spinSlots } from "./server/games/slots.js";
-import { initFishingSocket } from "./server/games/fishing.js";
-
-const { Pool } = pkg;
+import { spinSlots } from "./games/slots.js";
+import { bonusReward } from "./games/bonus.js";
+import { initFishing } from "./games/fishing.js";
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-// PostgreSQL
-export const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false },
-});
-
 const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
 
-const io = new Server(server, {
-  cors: {
-    origin: "*",
-    methods: ["GET", "POST"]
-  }
+app.get("/", (_, res) => res.send("Sleek Sands Backend Live"));
+
+app.post("/api/slots/spin", (_, res) => {
+  res.json(spinSlots());
 });
 
-/* ---------------- HEALTH ---------------- */
-
-app.get("/health", async (req, res) => {
-  try {
-    await pool.query("SELECT 1");
-    res.json({ status: "ok" });
-  } catch {
-    res.status(500).json({ status: "database error" });
-  }
+app.post("/api/bonus", (_, res) => {
+  res.json({ reward: bonusReward() });
 });
 
-/* ---------------- ROOT ---------------- */
+initFishing(io);
 
-app.get("/", (req, res) => {
-  res.send("Casino backend live");
-});
-
-/* ---------------- STATUS ---------------- */
-
-app.get("/api/status", (req, res) => {
-  res.json({ message: "API running" });
-});
-
-/* ---------------- SLOT ENGINE ---------------- */
-
-app.post("/api/slots/spin", (req, res) => {
-  const result = spinSlots();
-  res.json(result);
-});
-
-/* ---------------- SOCKET GAME ---------------- */
-
-initFishingSocket(io);
-
-/* ---------------- START ---------------- */
-
-const PORT = process.env.PORT || 10000;
-
-server.listen(PORT, () => {
-  console.log("Server running on port", PORT);
-});
+server.listen(process.env.PORT || 10000);
